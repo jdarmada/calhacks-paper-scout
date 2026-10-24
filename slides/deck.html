@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Build an Agent That Does the Research · Cal Hacks</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --ink: #101c3f; --mint: #7eecd3; --teal: #48efcf; --deep: #0b7a6b; --pink: #f04e98;
+    --blue: #0b64dd; --paper: #f7fbfa; --muted: #4d5a75; --line: #d5e3df;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: #0c1430; overflow: hidden; }
+  body { font-family: Inter, system-ui, sans-serif; color: var(--ink); }
+
+  #stage { position: absolute; width: 1600px; height: 900px; left: 50%; top: 50%; transform-origin: center; }
+  .slide { position: absolute; inset: 0; padding: 90px 120px; display: none; flex-direction: column; background: var(--paper); overflow: hidden; }
+  .slide.on { display: flex; }
+  .slide.mint { background: var(--mint); }
+  .slide.dark { background: var(--ink); color: #fff; }
+
+  h1 { font-size: 92px; line-height: 1.02; font-weight: 800; letter-spacing: -2.5px; }
+  h2 { font-size: 60px; line-height: 1.08; font-weight: 800; letter-spacing: -1.5px; margin-bottom: 36px; }
+  h3 { font-size: 30px; font-weight: 700; margin-bottom: 10px; }
+  p, li { font-size: 30px; line-height: 1.4; }
+  .lead { font-size: 36px; color: var(--muted); max-width: 1200px; }
+  .dark .lead { color: #b9c4dc; }
+  .kicker { font-size: 22px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: var(--deep); margin-bottom: 20px; }
+  .dark .kicker { color: var(--teal); }
+  .pink { color: var(--pink); }
+  .teal { color: var(--teal); }
+  ul.clean { list-style: none; }
+  ul.clean li { padding-left: 44px; position: relative; margin: 14px 0; }
+  ul.clean li::before { content: ""; position: absolute; left: 4px; top: 16px; width: 16px; height: 16px; border-radius: 50%; background: var(--ink); }
+  .mint ul.clean li::before { background: var(--ink); }
+  .dark ul.clean li::before { background: var(--teal); }
+
+  .grid { display: grid; gap: 28px; }
+  .g2 { grid-template-columns: 1fr 1fr; } .g3 { grid-template-columns: repeat(3, 1fr); } .g4 { grid-template-columns: repeat(4, 1fr); }
+  .card { background: #fff; border: 2px solid var(--line); border-radius: 22px; padding: 30px 32px; }
+  .mint .card { border-color: rgba(16,28,63,.15); }
+  .dark .card { background: #17244d; border-color: #263666; }
+  .card p { font-size: 24px; color: var(--muted); }
+  .dark .card p { color: #b9c4dc; }
+  .card .num { font-size: 20px; font-weight: 700; color: var(--deep); letter-spacing: 2px; margin-bottom: 10px; }
+  .dark .card .num { color: var(--teal); }
+
+  pre { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 22px; line-height: 1.5; background: var(--ink); color: #e6ecff; border-radius: 20px; padding: 28px 34px; white-space: pre; overflow: hidden; }
+  pre .k { color: var(--teal); } pre .s { color: #ffb3d6; } pre .c { color: #7d8bb3; }
+  code { font-family: "JetBrains Mono", monospace; font-size: .85em; background: rgba(16,28,63,.08); padding: 2px 10px; border-radius: 8px; }
+  .dark code { background: rgba(255,255,255,.1); }
+
+  .foot { position: absolute; left: 120px; right: 120px; bottom: 40px; display: flex; justify-content: space-between; align-items: center; font-size: 18px; color: var(--muted); }
+  .dark .foot { color: #7d8bb3; }
+  .logo { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 22px; color: var(--ink); }
+  .dark .logo { color: #fff; }
+  .shape { position: absolute; pointer-events: none; }
+
+  /* flow diagrams */
+  .flow { display: flex; align-items: center; gap: 18px; }
+  .flow .box { background: #fff; border: 2px solid var(--line); border-radius: 18px; padding: 22px 26px; font-size: 24px; font-weight: 600; text-align: center; flex: 1; }
+  .flow .box small { display: block; font-weight: 400; font-size: 19px; color: var(--muted); margin-top: 6px; }
+  .flow .box.hl { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .flow .box.hl small { color: #b9c4dc; }
+  .flow .box.m { background: var(--mint); border-color: var(--mint); }
+  .flow .arr { font-size: 40px; color: var(--deep); font-weight: 700; }
+  .tag { display: inline-block; font-size: 18px; font-weight: 700; padding: 6px 14px; border-radius: 99px; background: var(--ink); color: #fff; margin-right: 8px; }
+  .tag.p { background: var(--pink); } .tag.t { background: var(--teal); color: var(--ink); } .tag.b { background: var(--blue); }
+
+  .big-stat { font-size: 260px; font-weight: 800; letter-spacing: -10px; line-height: .9; }
+
+  #notes { position: fixed; left: 0; right: 0; bottom: 0; max-height: 34vh; overflow: auto; background: rgba(12,20,48,.96); color: #e6ecff; font: 17px/1.5 Inter, sans-serif; padding: 18px 28px; display: none; border-top: 3px solid var(--teal); z-index: 10; }
+  #progress { position: fixed; left: 0; bottom: 0; height: 5px; background: var(--pink); transition: width .25s; z-index: 11; }
+  #count { position: fixed; right: 16px; top: 12px; color: #7d8bb3; font: 13px Inter, sans-serif; z-index: 11; }
+  @media print {
+    html, body { overflow: visible; background: #fff; }
+    #stage { position: static; transform: none !important; width: auto; height: auto; }
+    .slide { display: flex !important; position: relative; width: 1600px; height: 900px; page-break-after: always; }
+    #notes, #progress, #count { display: none !important; }
+  }
+</style>
+</head>
+<body>
+<div id="stage">
+
+<!-- 1 TITLE -->
+<section class="slide mint" data-notes="Intro yourself. 'Thanks for spending Friday night here instead of at the snacks.'">
+  <svg class="shape" style="right:-60px;top:-40px" width="560" height="980" viewBox="0 0 560 980" fill="none" stroke="#101c3f" stroke-width="2.5">
+    <path d="M200 0 L230 270 L380 420 L560 420" /><path d="M260 0 L285 250 L420 380 L560 380" fill="#55c5b8" fill-opacity=".35"/>
+    <path d="M150 520 C 60 600, 60 760, 180 820 L 470 720 L 380 470 C 300 460, 220 480, 150 520 Z" fill="#55c5b8" fill-opacity=".45" />
+    <path d="M190 560 C 140 620, 150 720, 220 760 L 410 690 L 350 520 C 290 515, 235 530, 190 560 Z" />
+  </svg>
+  <div style="margin-top:auto;margin-bottom:auto;max-width:1150px">
+    <div class="kicker">Cal Hacks · Elastic workshop</div>
+    <h1>Build an Agent That Does the Research</h1>
+    <p class="lead" style="margin-top:30px;color:var(--ink)">Learn context engineering with Elasticsearch.</p>
+  </div>
+  <div class="foot"><span style="color:var(--ink)">JD · Elastic &nbsp;·&nbsp; Friday 8–9 PM · Gate 3</span><span class="logo">⬢ elastic</span></div>
+</section>
+
+<!-- 2 HOOK -->
+<section class="slide dark" data-notes="Hands up if you've read a research paper this year. Keep it up if you finished it. The pattern matters, not the papers: messy pile in, useful answers out.">
+  <div class="kicker">The problem</div>
+  <div class="big-stat"><span class="teal">20,000+</span></div>
+  <p class="lead" style="margin-top:30px;font-size:46px;color:#fff">new papers hit arXiv every month.</p>
+  <p class="lead" style="margin-top:50px">Nobody reads them all. So tonight we build an agent that does: it reads everything, finds what matters, spots trends, and writes you a briefing.</p>
+  <div class="foot"><span>Papers are the example. The pattern is the point.</span><span class="logo">⬢ elastic</span></div>
+</section>
+
+<!-- 3 CHALLENGE -->
+<section class="slide mint" data-notes="Read the four criteria. Promise: you'll see all four in the next 15 minutes. You won't memorize APIs, your coding agent writes the code.">
+  <div class="kicker">The Elastic challenge</div>
+  <h2>Find the Signal with Elasticsearch</h2>
+  <p class="lead" style="color:var(--ink);margin-bottom:44px">Build a project that turns complex, messy data into useful insights, answers, or actions.</p>
+  <div class="grid g4">
+    <div class="card"><div class="num">01</div><h3>Elasticsearch</h3><p>Creative, meaningful use of search</p></div>
+    <div class="card"><div class="num">02</div><h3>Jina embeddings</h3><p>Search by meaning, in any language</p></div>
+    <div class="card"><div class="num">03</div><h3>Agent Builder + Workflows</h3><p>Agents that answer <i>and</i> act</p></div>
+    <div class="card"><div class="num">04</div><h3>Cloud Serverless</h3><p>Zero ops, free for the weekend</p></div>
+  </div>
+  <p style="margin-top:44px;font-size:28px"><b>1st:</b> Meta Quest 3S VR Headset &nbsp;&nbsp;|&nbsp;&nbsp; <b>2nd:</b> Bose QuietComfort Headphones</p>
+  <div class="foot"><span style="color:var(--ink)">ela.st/calhacks</span><span class="logo">⬢ elastic</span></div>
+</section>
+
+<!-- 4 CONTEXT -->
+<section class="slide" data-notes="The one idea to leave with. LLMs don't know your data or this morning's paper. Every good AI app = find the right 10 things, hand them to the model. The 'find' half is a search problem.">
+  <div class="kicker">The one idea</div>
+  <h2>Your LLM is only as smart as<br />the context you give it.</h2>
+  <div class="flow" style="margin-top:40px">
+    <div class="box">10,000,000 things<small>papers, docs, logs, posts</small></div>
+    <div class="arr">→</div>
+    <div class="box hl">1. Find<small>the right 10</small></div>
+    <div class="arr">→</div>
+    <div class="box hl">2. Hand off<small>to the model</small></div>
+    <div class="arr">→</div>
+    <div class="box m">Answer you can trust<small>with citations</small></div>
+  </div>
+  <p class="lead" style="margin-top:60px">That's <b style="color:var(--ink)">context engineering</b>. The hard half, <i>finding</i>, is a search problem. Elasticsearch has been solving it for 15 years.</p>
+  <div class="foot"><span></span><span class="logo">⬢ elastic</span></div>
+</section>
+
+<!-- 5 THREE WAYS -->
+<section class="slide" data-notes="Keyword = exact words (names, acronyms, error codes). Semantic = meaning. Hybrid = both, fused, then a reranker reorders. Production apps ship hybrid.">
+  <div class="kicker">Three ways to search</div>
+  <h2>You want all three.</h2>
+  <div class="grid g3">
+    <div class="card"><span class="tag">Keyword · BM25</span><h3 style="margin-top:20px">Exact words</h3><p>Unbeatable for names, acronyms, error codes, and jargon like “transformer”.</p></div>
+    <div class="card"><span class="tag b">Semantic · Jina</span><h3 style="margin-top:20px">Meaning</h3><p>“teach robots by watching humans” finds <i>imitation learning from video demonstrations</i>, with zero shared words.</p></div>
+    <div class="card" style="border-color:var(--pink)"><span class="tag p">Hybrid + rerank</span><h3 style="margin-top:20px">Best of both</h3><p>Run both, fuse with RRF, then a reranker reads the top hits and reorders them. This is what you ship.</p></div>
+  </div>
+  <div class="foot"><span></span><span class="logo">⬢ elastic</span></div>
+</section>
+
+<!-- 6 SETUP -->
+<section class="slide" data-notes="Serverless: free via ela.st/calhacks, no clusters. One field type: semantic_text. Elastic chunks + embeds with Jina on its own inference service. No embedding API, no vector DB, no chunking library. Jina v5 is the default and multilingual.">
+  <div class="kicker">Serverless + Jina</div>
+  <h2>The whole setup is one field.</h2>
+  <div class="grid g2" style="align-items:center">
+<pre><span class="c">// PUT /papers</span>
+{
+  <span class="s">"mappings"</span>: {
+    <span class="s">"properties"</span>: {
+      <span class="s">"title"</span>:   { <span class="s">"type"</span>: <span class="s">"text"</span> },
+      <span class="s">"authors"</span>: { <span class="s">"type"</span>: <span class="s">"keyword"</span> },
+      <span class="s">"content"</span>: { <span class="s">"type"</span>: <span class="k">"semantic_text"</span> }
+    }
+  }
+}</pre>
+    <div>
+      <p style="font-size:28px;margin-bottom:22px">When you index a document, Elastic automatically:</p>
+      <ul class="clean">
+        <li>chunks long text</li>
+        <li>embeds it with <b>Jina v5</b> on Elastic's inference service</li>
+        <li>stores and indexes the vectors</li>
+      </ul>
+      <p style="font-size:24px;color:var(--muted);margin-top:24px">No embedding API key, no vector DB, no chunking library. Multilingual out of the box.</p>
+    </div>
+  </div>
+  <div class="foot"><span>Elastic Cloud Serverless · free at ela.st/calhacks</span><span class="logo">⬢ elastic</span></div>
+</section>
+
+<!-- 7 DATA -->
+<section class="slide" data-notes="~1,000 papers from the arXiv API, sampled across the last 6 months so trends work. AI, NLP, ML, vision, robotics. A few minutes to load.">
+  <div class="kicker">The demo data</div>
+  <h2>Paper Scout: 6 months of arXiv, one script.</h2>
+  <div class="flow">
+    <div class="box">arXiv API<small>newest papers</small></div><div class="arr">→</div>
+    <div class="box">ingest.py<small>~70 lines</small></div><div class="arr">→</div>
+    <div class="box hl">Elasticsearch Serverless<small>index: papers</small></div><div class="arr">→</div>
+    <div class="box m">~1,000 papers<small>cs.AI · CL · LG · CV · RO</small></div>
+  </div>
+<pre style="margin-top:44px;font-size:21px">{ <span class="s">"title"</span>: <span class="s">"Learning Dexterous Manipulation from Human Video..."</span>,
+  <span class="s">"authors"</span>: [<span class="s">"..."</span>], <span class="s">"primary_category"</span>: <span class="s">"cs.RO"</span>, <span class="s">"published"</span>: <span class="s">"2026-10-21"</span>,
+  <span class="s">"content"</span>: <span class="k">"title + abstract  ← Jina embeds this"</span>, <span class="s">"url"</span>: <span class="s">"https://arxiv.org/abs/..."</span> }</pre>
+  <div class="foot"><span></span><span class="logo">⬢ elastic</span></div>
+</section>
+
+<!-- 8 DEMO 1 -->
+<section class="slide mint" data-notes="SWITCH TO localhost:8000. 1) 'teaching robots new skills by watching humans': keyword misses, semantic nails it. 2) 'transformer': keyword wins on jargon, hybrid best of both. 3) Point at the ES|QL trend bars. 4) 'Find related papers →' = recommendation engine in one function.">
+  <div class="kicker">Demo 1</div>
+  <h1 style="font-size:110px">Find the signal.</h1>
+  <ul class="clean" style="margin-top:50px">
+    <li>Same query, three columns: keyword vs. Jina vs. hybrid</li>
+    <li>When meaning wins, and when exact words win</li>
+    <li>Analytics on the same index with ES|QL</li>
+    <li>“Find related papers”: a recommendation engine in one query</li>
+  </ul>
+  <div class="foot"><span style="color:var(--ink)">localhost:8000</span><span class="logo">⬢ elastic</span></div>
+</section>
+
+<!-- 9 AGENT BUILDER -->
+<section class="slide" data-notes="Agent Builder = an agent that lives next to your data. Instructions + tools + model. Elastic provides a model out of the box, so you don't need an OpenAI key.">
+  <div class="kicker">Elastic Agent Builder</div>
+  <h2>An agent that lives next to your data.</h2>
+  <div class="flow" style="margin-top:10px">
+    <div class="box">Instructions<small>who it is, how it behaves</small></div><div class="arr">+</div>
+    <div class="box">Tools<small>what it's allowed to do</small></div><div class="arr">+</div>
+    <div class="box">Model<small>Elastic-managed LLM included</small></div><div class="arr">=</div>
+    <div class="box hl">Your agent<small>chat UI · REST API · MCP · A2A</small></div>
+  </div>
+<pre style="margin-top:44px;font-size:21px"><span class="c">POST kbn:/api/agent_builder/agents</span>
+{ <span class="s">"id"</span>: <span class="s">"paper-scout"</span>, <span class="s">"name"</span>: <span class="s">"Paper Scout"</span>,
+  <span class="s">"configuration"</span>: {
+    <span class="s">"instructions"</span>: <span class="s">"Ground every answer in the papers index. Cite as [Title](url)..."</span>,
+    <span class="s">"tools"</span>: [{ <span class="s">"tool_ids"</span>: [<span class="k">"papers_search"</span>, <span class="k">"papers_topic_trend"</span>, <span class="k">"papers_write_digest"</span>] }] } }</pre>
+  <div class="foot"><span></span><span class="logo">⬢ elastic</span></div>
+</section>
+
+<!-- 10 TOOLS -->
+<section class="slide" data-notes="Four tool types. ES|QL tools are guardrails: you write the query, the agent fills in the blank. Every tool is auto-exposed over MCP. The agent picks tools by DESCRIPTION, so write them for a new teammate.">
+  <div class="kicker">Tools are where the magic is</div>
+  <h2>Four kinds of tools.</h2>
+  <div class="grid g4" style="margin-bottom:34px">
+    <div class="card"><div class="num">INDEX SEARCH</div><p>“Here's an index, figure it out.” The agent writes its own queries.</p></div>
+    <div class="card"><div class="num">ES|QL</div><p>Your query, with blanks the agent fills in. Guardrails for analytics.</p></div>
+    <div class="card"><div class="num">WORKFLOW</div><p>Lets the agent <b>take actions</b>, not just answer.</p></div>
+    <div class="card"><div class="num">MCP</div><p>Every tool is auto-exposed to Claude Code, Cursor, or your app.</p></div>
+  </div>
+<pre style="font-size:21px">{ <span class="s">"id"</span>: <span class="s">"papers_topic_trend"</span>, <span class="s">"type"</span>: <span class="k">"esql"</span>,
+  <span class="c">// ↓ the agent picks tools by reading this</span>
+  <span class="s">"description"</span>: <span class="s">"Count papers per month mentioning a topic. Use for 'is X trending'."</span>,
+  <span class="s">"configuration"</span>: { <span class="s">"query"</span>: <span class="s">"FROM papers | WHERE MATCH(abstract, <span class="k">?topic</span>) | STATS COUNT(*) BY month"</span> } }</pre>
+  <div class="foot"><span></span><span class="logo">⬢ elastic</span></div>
+</section>
+
+<!-- 11 DEMO 2 -->
+<section class="slide mint" data-notes="'Ask the agent' tab. 1) AI agents + tools, cite 3: watch the pink tool tags, every claim links to a real paper. 2) diffusion trending: it picks the ES|QL tool on its own. 3) weekend hackathon ideas: read one aloud. Optional: show the same agent in Kibana > Agents.">
+  <div class="kicker">Demo 2</div>
+  <h1 style="font-size:110px">Ask Paper Scout.</h1>
+  <ul class="clean" style="margin-top:50px">
+    <li>“What's the latest on AI agents that use tools? Cite 3.”</li>
+    <li>“Is research on diffusion models growing or shrinking?”</li>
+    <li>“Give me 3 weekend hackathon ideas from this month's papers.”</li>
+  </ul>
+  <p style="margin-top:30px;font-size:26px">Watch which <b>tools</b> it picks, and check that every citation is real.</p>
+  <div class="foot"><span style="color:var(--ink)">localhost:8000 → Ask the agent</span><span class="logo">⬢ elastic</span></div>
+</section>
+
+<!-- 12 WORKFLOWS -->
+<section class="slide" data-notes="Workflows = YAML automations inside Elastic. paper-digest: search, agent writes briefing, save/post. Runs every morning AND is a tool the agent can call. Demo: 'Write and save a digest on multimodal LLMs', or show Kibana Workflows execution history.">
+  <div class="kicker">Elastic Workflows</div>
+  <h2>Agents that <span class="pink">act</span>.</h2>
+  <div class="grid g2" style="grid-template-columns: 1.15fr 1fr; align-items:start">
+<pre style="font-size:20px"><span class="k">name</span>: paper-digest
+<span class="k">triggers</span>:
+  - type: manual
+  - type: scheduled       <span class="c"># every morning</span>
+    with: { every: 1d }
+<span class="k">steps</span>:
+  - name: find_papers
+    type: <span class="s">elasticsearch.search</span>  <span class="c"># Jina semantic</span>
+  - name: write_digest
+    type: <span class="s">ai.agent</span>              <span class="c"># reason</span>
+    with:
+      message: "Brief me on {{ inputs.topic }}
+                using {{ steps.find_papers.output }}"
+  - name: save_digest
+    type: <span class="s">elasticsearch.index</span>   <span class="c"># or Slack, Jira...</span></pre>
+    <div>
+      <div class="flow" style="flex-direction:column;align-items:stretch;gap:12px">
+        <div class="box">🔎 Search<small>best papers on a topic</small></div>
+        <div class="arr" style="text-align:center">↓</div>
+        <div class="box hl">🧠 Reason<small>agent writes a briefing</small></div>
+        <div class="arr" style="text-align:center">↓</div>
+        <div class="box m">⚡ Act<small>save it, post to Slack / Discord</small></div>
+      </div>
+      <p style="font-size:24px;margin-top:24px;color:var(--muted)">Runs on a schedule <b style="color:var(--ink)">and</b> is a tool the agent can call.</p>
+    </div>
+  </div>
+  <div class="foot"><span></span><span class="logo">⬢ elastic</span></div>
+</section>
+
+<!-- 13 BIG PICTURE -->
+<section class="slide dark" data-notes="Recap the loop: data in, find, reason, act. That loop is basically every winning project.">
+  <div class="kicker">What you just saw</div>
+  <h2>Search → Reason → Act</h2>
+  <div class="grid g4" style="margin-top:20px">
+    <div class="card"><div class="num">DATA IN</div><h3>Serverless</h3><p>Any messy JSON. <code>semantic_text</code> + Jina does the embeddings.</p></div>
+    <div class="card"><div class="num">FIND</div><h3>Elasticsearch</h3><p>Keyword, semantic, hybrid, rerank, plus ES|QL analytics.</p></div>
+    <div class="card"><div class="num">REASON</div><h3>Agent Builder</h3><p>Instructions + tools. Chat, REST, or MCP.</p></div>
+    <div class="card"><div class="num">ACT</div><h3>Workflows</h3><p>Scheduled, triggered, or called by the agent.</p></div>
+  </div>
+  <p class="lead" style="margin-top:60px">Hit all four and you've hit every judging criterion.</p>
+  <div class="foot"><span></span><span class="logo">⬢ elastic</span></div>
+</section>
+
+<!-- 14 CODING AGENT -->
+<section class="slide" data-notes="Nobody here is hand-writing ES queries tonight, and you shouldn't. 1) Elastic Agent Skills: official, teach your coding agent current APIs. 2) MCP: let your coding agent query your real data while it builds.">
+  <div class="kicker">Meet your coding agent</div>
+  <h2>Don't hand-write this. Teach your agent.</h2>
+  <div class="grid g2">
+    <div>
+      <h3>1 · Elastic Agent Skills</h3>
+      <p style="font-size:24px;color:var(--muted);margin-bottom:18px">Official skills so Claude Code / Cursor / Copilot use <i>current</i> Elastic APIs.</p>
+<pre style="font-size:18px">claude plugin marketplace add \
+  https://github.com/elastic/agent-skills
+claude plugin install \
+  elastic-elasticsearch@elastic-agent-skills
+claude plugin install \
+  elastic-kibana@elastic-agent-skills
+<span class="c"># Cursor/others: npx skills add elastic/agent-skills</span></pre>
+    </div>
+    <div>
+      <h3>2 · Plug in your data over MCP</h3>
+      <p style="font-size:24px;color:var(--muted);margin-bottom:18px">Your coding agent can query your real index while it builds.</p>
+<pre style="font-size:18px">claude mcp add --transport http \
+  paper-scout \
+  $KIBANA_URL/api/agent_builder/mcp \
+  --header "Authorization: ApiKey $KEY"</pre>
+    </div>
+  </div>
+  <div class="foot"><span>github.com/elastic/agent-skills</span><span class="logo">⬢ elastic</span></div>
+</section>
+
+<!-- 15 PROMPTS -->
+<section class="slide mint" data-notes="Take a picture. These work. Paper Scout repo is linked from ela.st/calhacks: fork it and swap the data.">
+  <div class="kicker">📸 Take a picture</div>
+  <h2>Prompts you can steal</h2>
+  <div class="grid g2" style="gap:22px">
+    <div class="card"><p style="color:var(--ink);font-size:25px">“Create an Elasticsearch Serverless index with a <b>semantic_text</b> field and ingest this CSV.”</p></div>
+    <div class="card"><p style="color:var(--ink);font-size:25px">“Build a FastAPI endpoint that does <b>hybrid search with RRF</b> and a reranker over my index.”</p></div>
+    <div class="card"><p style="color:var(--ink);font-size:25px">“Create an <b>Agent Builder</b> agent with an ES|QL tool that counts X by Y, plus an index search tool.”</p></div>
+    <div class="card"><p style="color:var(--ink);font-size:25px">“Write an <b>Elastic Workflow</b> that runs every morning, searches for X, and posts to Discord.”</p></div>
+  </div>
+  <p style="margin-top:36px;font-size:28px">Or fork <b>Paper Scout</b> and swap the data → <b class="pink">ela.st/calhacks</b></p>
+  <div class="foot"><span></span><span class="logo">⬢ elastic</span></div>
+</section>
+
+<!-- 16 IDEAS -->
+<section class="slide" data-notes="Same pattern, other piles of mess. If it's messy and there's a lot of it, it's a good fit.">
+  <div class="kicker">Swap the data</div>
+  <h2>Same pattern, different mess.</h2>
+  <div class="grid g3" style="gap:22px">
+    <div class="card"><h3>🎓 Course reviews</h3><p>“Which CS elective actually fits me?” agent</p></div>
+    <div class="card"><h3>🧪 Clinical trials</h3><p>Match patients to trials in plain English</p></div>
+    <div class="card"><h3>🏛️ City council minutes</h3><p>Alerts on what your city decided about housing</p></div>
+    <div class="card"><h3>🐛 GitHub issues</h3><p>Triage bot: finds dupes and who fixed it last</p></div>
+    <div class="card"><h3>🔥 Wildfire / 311 data</h3><p>A workflow that warns your neighborhood</p></div>
+    <div class="card"><h3>💬 Discord / Reddit</h3><p>“What is my community actually upset about?”</p></div>
+  </div>
+  <div class="foot"><span>If it's messy and there's a lot of it, it's a good fit.</span><span class="logo">⬢ elastic</span></div>
+</section>
+
+<!-- 17 CTA -->
+<section class="slide mint" data-notes="Your path for the next hour. We're at the Elastic table all weekend: come when it breaks, or when it works and you want to show off. Questions?">
+  <svg class="shape" style="right:-40px;bottom:-60px" width="620" height="620" viewBox="0 0 620 620" fill="none" stroke="#101c3f" stroke-width="2.5">
+    <path d="M120 300 C 40 380, 60 540, 200 600 L 560 470 L 460 200 C 340 190, 210 220, 120 300 Z" fill="#55c5b8" fill-opacity=".45"/>
+    <path d="M170 330 C 120 400, 140 510, 240 550 L 500 450 L 420 250 C 330 245, 240 270, 170 330 Z"/>
+  </svg>
+  <div class="kicker">Get started</div>
+  <h1 style="font-size:96px"><span class="pink">ela.st/calhacks</span></h1>
+  <ul class="clean" style="margin-top:44px;max-width:1000px">
+    <li>Grab a free <b>Elastic Cloud Serverless</b> project</li>
+    <li>Install the <b>Elastic agent skills</b> in your coding agent</li>
+    <li>Get <i>your</i> data into a <code>semantic_text</code> field</li>
+    <li>Give it an <b>agent</b> and a <b>workflow</b>. Find the signal.</li>
+  </ul>
+  <p style="margin-top:40px;font-size:30px;font-weight:600">Find us at the Elastic table all weekend. Questions?</p>
+  <div class="foot"><span style="color:var(--ink)">1st: Meta Quest 3S · 2nd: Bose QuietComfort</span><span class="logo">⬢ elastic</span></div>
+</section>
+
+</div>
+<div id="notes"></div>
+<div id="progress"></div>
+<div id="count"></div>
+
+<script>
+  const slides = [...document.querySelectorAll(".slide")];
+  const stage = document.getElementById("stage");
+  const notes = document.getElementById("notes");
+  let i = Math.max(0, Math.min(slides.length - 1, (parseInt(location.hash.slice(1)) || 1) - 1));
+
+  function fit() {
+    const s = Math.min(innerWidth / 1600, innerHeight / 900);
+    stage.style.transform = `translate(-50%, -50%) scale(${s})`;
+  }
+  function show(n) {
+    i = Math.max(0, Math.min(slides.length - 1, n));
+    slides.forEach((el, k) => el.classList.toggle("on", k === i));
+    notes.textContent = slides[i].dataset.notes || "";
+    document.getElementById("progress").style.width = ((i + 1) / slides.length * 100) + "%";
+    document.getElementById("count").textContent = `${i + 1} / ${slides.length}`;
+    history.replaceState(null, "", "#" + (i + 1));
+  }
+  addEventListener("keydown", (e) => {
+    if (["ArrowRight", "PageDown", " ", "Enter"].includes(e.key)) show(i + 1);
+    else if (["ArrowLeft", "PageUp", "Backspace"].includes(e.key)) show(i - 1);
+    else if (e.key === "Home") show(0);
+    else if (e.key === "End") show(slides.length - 1);
+    else if (e.key.toLowerCase() === "n") notes.style.display = notes.style.display === "block" ? "none" : "block";
+    else if (e.key.toLowerCase() === "f") document.documentElement.requestFullscreen?.();
+  });
+  stage.addEventListener("click", (e) => { if (!e.target.closest("a,pre")) show(e.clientX > innerWidth / 2 ? i + 1 : i - 1); });
+  addEventListener("resize", fit);
+  fit(); show(i);
+</script>
+</body>
+</html>

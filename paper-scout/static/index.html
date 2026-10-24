@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Paper Scout · Elasticsearch</title>
+<style>
+  :root {
+    --ink: #101c3f; --teal: #48efcf; --mint: #7deed3; --pink: #f04e98; --blue: #0b64dd;
+    --bg: #f5f7fa; --card: #fff; --muted: #5a6478; --line: #e3e8f0;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.45 Inter, -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--ink); }
+  header { background: var(--ink); color: #fff; padding: 18px 32px; display: flex; align-items: center; gap: 18px; }
+  header h1 { margin: 0; font-size: 22px; letter-spacing: -.3px; }
+  header h1 span { color: var(--teal); }
+  .chip { font-size: 12px; padding: 4px 10px; border-radius: 99px; background: rgba(72,239,207,.15); color: var(--teal); }
+  nav { margin-left: auto; display: flex; gap: 4px; background: rgba(255,255,255,.08); padding: 4px; border-radius: 10px; }
+  nav button { border: 0; background: none; color: #cdd5e6; padding: 8px 16px; border-radius: 7px; font: inherit; cursor: pointer; }
+  nav button.on { background: var(--teal); color: var(--ink); font-weight: 600; }
+  main { max-width: 1320px; margin: 0 auto; padding: 24px 32px 60px; }
+  .bar { display: flex; gap: 10px; }
+  .bar input { flex: 1; font: inherit; font-size: 17px; padding: 14px 16px; border: 2px solid var(--line); border-radius: 10px; outline: none; }
+  .bar input:focus { border-color: var(--teal); }
+  .bar button, .go { border: 0; background: var(--ink); color: #fff; font: inherit; font-weight: 600; padding: 0 22px; border-radius: 10px; cursor: pointer; }
+  .examples { margin: 10px 0 18px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .examples button { border: 1px solid var(--line); background: #fff; border-radius: 99px; padding: 6px 12px; font: inherit; font-size: 13px; cursor: pointer; color: var(--muted); }
+  .examples button:hover { border-color: var(--teal); color: var(--ink); }
+  .trend { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px; margin-bottom: 16px; display: none; }
+  .trend h4 { margin: 0 0 6px; font-size: 13px; color: var(--muted); font-weight: 500; }
+  .cols { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .col h3 { margin: 0 0 4px; font-size: 15px; }
+  .col p.sub { margin: 0 0 10px; font-size: 12px; color: var(--muted); }
+  .col.kw h3::before { content: "●"; color: #98a2b3; margin-right: 6px; }
+  .col.sem h3::before { content: "●"; color: var(--blue); margin-right: 6px; }
+  .col.hyb h3::before { content: "●"; color: var(--pink); margin-right: 6px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
+  .card a.t { color: var(--ink); font-weight: 600; text-decoration: none; }
+  .card a.t:hover { text-decoration: underline; }
+  .meta { font-size: 12px; color: var(--muted); margin: 4px 0 6px; display: flex; gap: 8px; align-items: center; }
+  .meta .cat { background: #eef2f8; padding: 1px 7px; border-radius: 5px; }
+  .abs { font-size: 13px; color: #3b4458; margin: 0; }
+  .rel { border: 0; background: none; color: var(--blue); font: inherit; font-size: 12px; cursor: pointer; padding: 6px 0 0; }
+  .related { margin-top: 8px; padding: 8px 10px; background: #f0fbf8; border-radius: 8px; font-size: 13px; }
+  .related a { display: block; color: var(--ink); margin: 3px 0; }
+  .empty { color: var(--muted); padding: 40px; text-align: center; grid-column: 1 / -1; }
+
+  #agent { display: none; max-width: 900px; margin: 0 auto; }
+  .log { display: flex; flex-direction: column; gap: 14px; min-height: 300px; margin-bottom: 16px; }
+  .msg { padding: 14px 16px; border-radius: 12px; max-width: 85%; }
+  .msg.user { align-self: flex-end; background: var(--ink); color: #fff; }
+  .msg.bot { align-self: flex-start; background: #fff; border: 1px solid var(--line); }
+  .msg.bot a { color: var(--blue); }
+  .msg ul { margin: 6px 0; padding-left: 20px; }
+  .msg p { margin: 6px 0; }
+  .msg h4 { margin: 10px 0 4px; font-size: 15px; }
+  .msg table { border-collapse: collapse; margin: 8px 0; font-size: 13px; }
+  .msg th, .msg td { border: 1px solid var(--line); padding: 4px 10px; text-align: left; }
+  .msg th { background: #f0fbf8; }
+  .tools { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+  .tool { font: 12px ui-monospace, Menlo, monospace; background: #fff0f7; color: #a3165a; padding: 3px 8px; border-radius: 6px; }
+  .thinking { color: var(--muted); font-style: italic; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Paper <span>Scout</span></h1>
+  <span class="chip" id="stats">connecting…</span>
+  <nav>
+    <button class="on" data-tab="search">Search</button>
+    <button data-tab="agent">Ask the agent</button>
+  </nav>
+</header>
+
+<main>
+  <section id="search">
+    <form class="bar" id="sform">
+      <input id="q" placeholder="Describe the research you're looking for…" autocomplete="off" />
+      <button>Search</button>
+    </form>
+    <div class="examples" id="sx"></div>
+    <div class="trend" id="trend"><h4 id="trendTitle"></h4><svg id="spark" width="100%" height="60" style="overflow:visible"></svg></div>
+    <div class="cols" id="cols"><div class="empty">Try a query, or pick an example above. Watch how the three columns disagree.</div></div>
+  </section>
+
+  <section id="agent">
+    <div class="log" id="log"></div>
+    <div class="examples" id="ax"></div>
+    <form class="bar" id="aform">
+      <input id="aq" placeholder="Ask Paper Scout anything about recent research…" autocomplete="off" />
+      <button>Send</button>
+    </form>
+  </section>
+</main>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+const SEARCH_EXAMPLES = [
+  "teaching robots new skills by watching humans",
+  "making large language models cheaper to run",
+  "LLM hallucination",
+  "can AI help doctors read medical scans",
+  "transformer",
+];
+const AGENT_EXAMPLES = [
+  "What's the latest research on AI agents that use tools? Cite 3 papers.",
+  "Is research on diffusion models growing or shrinking lately?",
+  "Who are the most active authors working on robot manipulation?",
+  "Give me 3 weekend hackathon ideas grounded in this month's papers.",
+  "Write and save a digest on multimodal LLMs.",
+];
+
+// ---------- tabs ----------
+document.querySelectorAll("nav button").forEach((b) =>
+  b.onclick = () => {
+    document.querySelectorAll("nav button").forEach((x) => x.classList.toggle("on", x === b));
+    $("#search").style.display = b.dataset.tab === "search" ? "" : "none";
+    $("#agent").style.display = b.dataset.tab === "agent" ? "block" : "none";
+  });
+
+// ---------- stats ----------
+fetch("/api/stats").then((r) => r.json()).then((s) => {
+  $("#stats").textContent = `${s.count.toLocaleString()} papers · Jina embeddings${s.reranker ? " · reranker on" : ""}`;
+}).catch(() => $("#stats").textContent = "not connected — check .env");
+
+// ---------- search ----------
+const chips = (el, list, fn) => list.forEach((t) => {
+  const b = document.createElement("button"); b.type = "button"; b.textContent = t; b.onclick = () => fn(t); el.appendChild(b);
+});
+chips($("#sx"), SEARCH_EXAMPLES, (t) => { $("#q").value = t; runSearch(); });
+$("#sform").onsubmit = (e) => { e.preventDefault(); runSearch(); };
+
+function card(h) {
+  const abs = h.abstract.length > 220 ? h.abstract.slice(0, 220) + "…" : h.abstract;
+  return `<div class="card">
+    <a class="t" href="${esc(h.url)}" target="_blank">${esc(h.title)}</a>
+    <div class="meta"><span class="cat">${esc(h.primary_category)}</span><span>${esc((h.published || "").slice(0, 10))}</span><span>${esc((h.authors || [])[0] || "")}${(h.authors || []).length > 1 ? " et al." : ""}</span></div>
+    <p class="abs">${esc(abs)}</p>
+    <button class="rel" data-id="${esc(h.id)}">Find related papers →</button>
+    <div class="related" hidden></div>
+  </div>`;
+}
+
+async function runSearch() {
+  const q = $("#q").value.trim(); if (!q) return;
+  $("#cols").innerHTML = `<div class="empty">Searching ${esc(q)}…</div>`;
+  const [res, tr] = await Promise.all([
+    fetch("/api/search?q=" + encodeURIComponent(q)).then((r) => r.json()),
+    fetch("/api/trend?q=" + encodeURIComponent(q)).then((r) => r.json()).catch(() => null),
+  ]);
+  const col = (cls, title, sub, list) => `<div class="col ${cls}"><h3>${title}</h3><p class="sub">${sub}</p>${
+    list.length ? list.map(card).join("") : '<div class="card abs">No matches. Keywords need the exact words.</div>'}</div>`;
+  $("#cols").innerHTML =
+    col("kw", "Keyword (BM25)", "matches the words you typed", res.keyword) +
+    col("sem", "Semantic (Jina)", "matches the meaning", res.semantic) +
+    col("hyb", res.hybrid_label || "Hybrid", "best of both, fused + reranked", res.hybrid);
+  drawTrend(q, tr && tr.rows);
+}
+
+$("#cols").onclick = async (e) => {
+  const b = e.target.closest(".rel"); if (!b) return;
+  const box = b.nextElementSibling;
+  if (!box.hidden) { box.hidden = true; return; }
+  box.hidden = false; box.textContent = "Finding papers with similar ideas…";
+  const r = await fetch("/api/related/" + encodeURIComponent(b.dataset.id)).then((r) => r.json());
+  box.innerHTML = r.related.map((h) => `<a href="${esc(h.url)}" target="_blank">↳ ${esc(h.title)}</a>`).join("");
+};
+
+function drawTrend(q, rows) {
+  const box = $("#trend");
+  if (!rows || rows.length < 2) { box.style.display = "none"; return; }
+  box.style.display = "block";
+  const total = rows.reduce((a, r) => a + r.papers, 0);
+  $("#trendTitle").textContent = `ES|QL: ${total} papers mention “${q}”, per month`;
+  const svg = $("#spark"), H = 60, max = Math.max(...rows.map((r) => r.papers));
+  const bw = Math.min(90, (svg.clientWidth || 1200) / rows.length);
+  svg.innerHTML = rows.map((r, i) => {
+    const h = Math.max(2, (r.papers / max) * (H - 30));
+    return `<rect x="${i * bw + 4}" y="${H - 16 - h}" width="${bw - 8}" height="${h}" rx="4" fill="#48efcf"><title>${r.month}: ${r.papers}</title></rect>
+      <text x="${i * bw + bw / 2}" y="${H - 18 - h}" text-anchor="middle" font-size="11" fill="#101c3f" dy="-3">${r.papers}</text>
+      <text x="${i * bw + bw / 2}" y="${H - 2}" text-anchor="middle" font-size="11" fill="#5a6478">${r.month}</text>`;
+  }).join("");
+}
+
+// ---------- agent ----------
+let conversationId = null;
+chips($("#ax"), AGENT_EXAMPLES, (t) => { $("#aq").value = t; sendChat(); });
+$("#aform").onsubmit = (e) => { e.preventDefault(); sendChat(); };
+
+function md(s) {  // tiny markdown: links, bold, code, bullets, paragraphs
+  let h = esc(s)
+    .replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2" target="_blank">$1</a>')
+    .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
+    .replace(/`([^`]+)`/g, "<code>$1</code>");
+  return h.split(/\n{2,}/).map((block) => {
+    const lines = block.split("\n");
+    if (/^#{1,4}\s/.test(lines[0])) return `<h4>${lines[0].replace(/^#+\s/, "")}</h4>` + (lines.length > 1 ? md(lines.slice(1).join("\n")) : "");
+    if (lines.length > 1 && lines.every((l) => /^\s*\|.*\|\s*$/.test(l))) {
+      const cells = (l) => l.trim().slice(1, -1).split("|").map((c) => c.trim());
+      const body = lines.filter((l, k) => !(k === 1 && /^[\s|:-]+$/.test(l)));
+      return "<table>" + body.map((l, k) => "<tr>" + cells(l).map((c) => k ? `<td>${c}</td>` : `<th>${c}</th>`).join("") + "</tr>").join("") + "</table>";
+    }
+    if (lines.every((l) => /^\s*([-*]|\d+\.)\s/.test(l)))
+      return "<ul>" + lines.map((l) => "<li>" + l.replace(/^\s*([-*]|\d+\.)\s/, "") + "</li>").join("") + "</ul>";
+    return "<p>" + lines.join("<br>").replace(/(^|<br>)\s*[-*]\s/g, "$1• ") + "</p>";
+  }).join("");
+}
+
+function bubble(cls, html) {
+  const d = document.createElement("div"); d.className = "msg " + cls; d.innerHTML = html;
+  $("#log").appendChild(d); d.scrollIntoView({ behavior: "smooth", block: "end" }); return d;
+}
+
+async function sendChat() {
+  const text = $("#aq").value.trim(); if (!text) return;
+  $("#aq").value = "";
+  bubble("user", esc(text));
+  const b = bubble("bot", '<span class="thinking">Paper Scout is searching the papers…</span>');
+  try {
+    const r = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: text, conversation_id: conversationId }) }).then((r) => r.json());
+    if (r.error) { b.innerHTML = `<span class="thinking">${esc(r.error)}</span>`; return; }
+    conversationId = r.conversation_id;
+    const tools = (r.tools || []).map((t) => `<span class="tool" title="${esc(JSON.stringify(t.params))}">⚙ ${esc(t.tool)}</span>`).join("");
+    b.innerHTML = (tools ? `<div class="tools">${tools}</div>` : "") + md(r.message);
+    b.scrollIntoView({ behavior: "smooth", block: "end" });
+  } catch (e) { b.innerHTML = `<span class="thinking">${esc(e)}</span>`; }
+}
+</script>
+</body>
+</html>

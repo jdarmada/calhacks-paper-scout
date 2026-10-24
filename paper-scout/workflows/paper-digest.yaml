@@ -1,0 +1,61 @@
+version: "1"
+name: paper-digest
+description: >-
+  Builds a research digest for a topic: finds the most relevant papers with
+  semantic search, has an agent write a short briefing, and saves it to the
+  paper-digests index. Runs on demand, every morning, or as an agent tool.
+enabled: true
+tags: ["calhacks", "papers"]
+
+triggers:
+  - type: manual
+  - type: scheduled
+    with:
+      every: 1d
+
+inputs:
+  - name: topic
+    type: string
+    description: Research topic to brief on, e.g. "small language models for robotics"
+    default: "AI agents that use tools"  # scheduled runs get no inputs, so steps also use | default
+
+steps:
+  # 1. Retrieve: semantic search over the Jina-embedded papers
+  - name: find_papers
+    type: elasticsearch.search
+    with:
+      index: papers
+      size: 8
+      query:
+        semantic:
+          field: content
+          query: '{{ inputs.topic | default: "AI agents that use tools" }}'
+      _source: ["title", "abstract", "url", "published", "authors"]
+
+  # 2. Reason: hand the papers to an Agent Builder agent
+  - name: write_digest
+    type: ai.agent
+    agent-id: elastic-ai-agent
+    with:
+      message: |
+        You are writing a short research briefing for a hackathon team on: {{ inputs.topic | default: "AI agents that use tools" }}.
+        Using ONLY the papers below, write:
+        - a 2 sentence overview of where the field is
+        - the 3 most interesting papers, each with one line on why it matters and its link
+        - one open problem a team could build a weekend project around
+        Papers:
+        {{ steps.find_papers.output.hits.hits | json }}
+
+  # 3. Act: store the digest so apps, dashboards, or other agents can use it
+  - name: save_digest
+    type: elasticsearch.index
+    with:
+      index: paper-digests
+      document:
+        topic: '{{ inputs.topic | default: "AI agents that use tools" }}'
+        digest: "{{ steps.write_digest.output.message }}"
+
+  - name: log
+    type: console
+    with:
+      message: "{{ steps.write_digest.output.message }}"
